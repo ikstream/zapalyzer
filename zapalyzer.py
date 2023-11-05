@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 # MIT License
 # 
 # Copyright (c) 2023 Stefan Venz
