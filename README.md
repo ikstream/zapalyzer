@@ -7,7 +7,7 @@ Currently it will output the results to `stdout` in CSV format
 
 ## Options
 ```
-$ python analyze-js.py -h
+$ ./analyze-js.py -h
 usage: analyze-js.py [-h] [-i file] [--csv] [--nocsv]
 
 Analyze ZAProxy JSON alert report
