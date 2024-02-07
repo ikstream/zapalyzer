@@ -7,8 +7,8 @@ Currently it will output the results to `stdout` in CSV format
 
 ## Options
 ```
-$ python analyze-js.py -h
-usage: analyze-js.py [-h] [-i file] [--csv] [--nocsv]
+$ ./zapalyzer.py -h                                            
+usage: zapalyzer.py [-h] [-i file] [--csv] [--nocsv] [--cve] [--apikey <API key>]
 
 Analyze ZAProxy JSON alert report
 
@@ -18,5 +18,7 @@ options:
                         Path to the JSON report file
   --csv                 Print the results in CSV format (default)
   --nocsv               Don't output results in CSV format
+  --cve                 Add CVE base score and vector to output, by performing a lookup on NIST NVD database
+  --apikey <API key>    NVD database API key to speed up CVE lookup
 ```
 
