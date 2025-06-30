@@ -51,6 +51,9 @@ def get_cve_info(cve_id, api_key=''):
     """
     cve_data = ''
 
+    if "CVE" not in cve_id['cveId']:
+        return ";"
+
     if not api_key:
         time.sleep(6)
 
@@ -68,7 +71,6 @@ def get_cve_info(cve_id, api_key=''):
     for metric in metrics:
         for entry in metrics[metric]:
             if entry['type'] != 'Primary':
-                print('not primary')
                 continue
             
             if float(entry['cvssData']['version']) > 2:
@@ -93,17 +95,18 @@ def generate_csv_output(libs, cve_check=False, api_key=''):
         apikey: API key for NVD database
     """
     if cve_check:
-        print("host;Library;Version;Path;Issue;CVSS Base Score;CVSS Vector")
+        print("host;Library;Version;Path;Issue;CVSS Base Score;CVSS Vector;Evidence")
     else:
-        print("host;Library;Version;Path;Issue")
+        print("host;Library;Version;Path;Issue;Evidence")
 
     cve_data = ''
 
     for lib in libs:
         system = f"{lib['protocol']}://{lib['host']}"
-        for cve in lib['issue'].split('\n'):
+        for cved in lib['issue']:
+            cve = cved.strip(':')
             if len(lib['issue']) == 0:
-                print(f"{system};{lib['lib']};{lib['version']};{system}/{lib['path']};{lib['lib']} {lib['version']} EoL")
+                print(f"{system};{lib['lib']};{lib['version']};{system}/{lib['path']};{lib['lib']} {lib['version']} EoL;\'{lib['evidence'].encode()}\'")
             else:
                 if cve:
                     if cve_check:
@@ -113,7 +116,7 @@ def generate_csv_output(libs, cve_check=False, api_key=''):
                             cve_id = {'cveId' : cve}
                             cve_data = get_cve_info(cve_id, api_key)
 
-                    print(f"{system};{lib['lib']};{lib['version']};{system}/{lib['path']};{cve};{cve_data}")
+                    print(f"{system};{lib['lib']};{lib['version']};{system}/{lib['path']};{cve};{cve_data};\'{lib['evidence'].encode('unicode_escape')}\'")
 
 
 def parse_vulnerable_javascript(alert):
@@ -134,6 +137,8 @@ def parse_vulnerable_javascript(alert):
     Returns:
         i: dictionary of the processed alert.
     """
+    version = 5
+    lib = 3
     i = {}
 
     url = alert['url'].split('/')
@@ -146,10 +151,13 @@ def parse_vulnerable_javascript(alert):
     i['name'] = alert['name']
     i['cwe'] = alert['cweid']
 
-    i['lib'] = desc[3][:-1]
-    i['version'] = desc[5]
+    i['lib'] = alert['other'].split(' ')[lib].strip(',')
+    #i['lib'] = desc[3][:-1]
+    i['version'] = alert['other'].split(' ')[version]
+    #i['version'] = desc[5]
     i['description'] = alert['description']
-    i['issue'] = alert['other']
+    i['issue'] = alert['tags']
+    i['evidence'] = alert['evidence']
 
     return i
 
