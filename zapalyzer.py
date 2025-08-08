@@ -78,8 +78,8 @@ def get_cve_info(cve_id, api_key=''):
                 break
         if cve_data:
             break
-    else:
-        cve_data = f"{get_metrics(entry)}"
+        else:
+            cve_data = f"{get_metrics(entry)}"
             
     PROCESSED_CVES[cve_id['cveId']]  = cve_data
     return cve_data
@@ -106,8 +106,8 @@ def generate_csv_output(libs, cve_check=False, api_key=''):
         for cved in lib['issue']:
             cve = cved.strip(':')
             if len(lib['issue']) == 0:
-                print(f"{system};{lib['lib']};{lib['version']};{system}/{lib['path']};{lib['lib']} {lib['version']} EoL;\'{lib['evidence'].encode()}\'")
-            else:
+                print(f"{system};{lib['lib']};{lib['version']};{system}/{lib['path']};{lib['lib']} {lib['version']} EoL;\'{lib['evidence'].encode('unicode_escape').decode('UTF-8')}\'")
+            if "cve" in cve.lower() or "cwe" in cve.lower():
                 if cve:
                     if cve_check:
                         if cve in PROCESSED_CVES:
@@ -116,7 +116,9 @@ def generate_csv_output(libs, cve_check=False, api_key=''):
                             cve_id = {'cveId' : cve}
                             cve_data = get_cve_info(cve_id, api_key)
 
-                    print(f"{system};{lib['lib']};{lib['version']};{system}/{lib['path']};{cve};{cve_data};\'{lib['evidence'].encode('unicode_escape')}\'")
+                    print(f"{system};{lib['lib']};{lib['version']};{system}/{lib['path']};{cve};{cve_data};\'{lib['evidence'].encode('unicode_escape').decode('UTF-8')}\'")
+            else:
+                continue
 
 
 def parse_vulnerable_javascript(alert):
