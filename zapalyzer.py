@@ -44,7 +44,7 @@ def get_cve_info(cve_id, api_key=''):
 
     Arguments:
         cve_id: CVE identifier dictionary in form {'cveID' : 'CVE-2008-2008'}
-        api_key: api key dictionary for NVD database api in form { 'apiKey' : '<apiKeyValue>'
+        api_key: api key dictionary for NVD database api in form { 'apiKey' : '<apiKeyValue>' }
 
     Returns:
         cve_data: CVE information in form "CVSS base score; CVSS vector"
@@ -63,7 +63,7 @@ def get_cve_info(cve_id, api_key=''):
                          timeout=120, 
                          headers=api_key).json()
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred in retreiving CVE information: {e}")
         sys.exit(1) 
 
     metrics = r['vulnerabilities'][0]['cve']['metrics']
@@ -85,7 +85,7 @@ def get_cve_info(cve_id, api_key=''):
     return cve_data
 
 
-def generate_csv_output(libs, cve_check=False, api_key=''):
+def generate_js_output(libs, cve_check=False, api_key=''):
     """
     Prints CSV output for vulnerable JavaScript components
     
@@ -164,6 +164,34 @@ def parse_vulnerable_javascript(alert):
     return i
 
 
+def generate_tech_output(tech_alerts):
+    print("host;Library;Version;Path;Issue;Evidence")
+    for tech in tech_alerts:
+        system = f"{tech['protocol']}://{tech['host']}"
+        print(f"{system};{tech['alert']};{tech['evidence']};{tech['desc']};{tech['other']}")
+
+
+def parse_tech_stack_leak(alert):
+    """
+    PluginIDs 10036,10037,10004
+    """
+    i = {}
+    
+    url = alert['url'].split('/')
+    desc = alert['description'].split(' ')
+
+    i['protocol'] = url[0][:-1]
+    i['host'] = url[2]
+    i['name'] = alert['name']
+    i['cwe'] = alert['cweid']
+    i['evidence'] = alert['evidence']
+    i['other'] = alert['other']
+    i['alert'] = alert['alert']
+    i['desc'] = alert['description']
+
+    return i
+
+
 def parse_alert_file(alert_report):
     """
     Parse the ZAProxy JSON alert report file
@@ -172,31 +200,48 @@ def parse_alert_file(alert_report):
         alert_report: Path to the JSON alert report file
 
     Returns:
-        libs: list of evaluated alerts
+        parsed_alerts: list of evaluated alerts
     """
-    libs = []
-    plid = 10003
+    js_libs = []
+    tech_stack = []
+    parsed_alerts = {}
+    tech_leaks = 0
+    js_lib_count = 0
+    
+    vuln_js = "10003"
+    tech_ids = ["10036", "10037", "10004"]
 
     if (pathlib.Path(alert_report).is_file()):
         with open(alert_report, 'r') as alert_file:
             try:
-                json_alerts = json.loads(alert_file.read())
+                alerts = json.loads(alert_file.read())['alerts']
             except Exception as e:
                 sys.exit(f"ERROR: Failed to load report file {alert_report}: {e}")
     else:
         sys.exit(f"ERROR: {alert_report} seems to be no file")
 
-    alerts = json_alerts['alerts']
+    #alerts = json_alerts['alerts']
 
     for alert in alerts:
-        if alert['pluginId'] == str(plid):
-            libs.append(parse_vulnerable_javascript(alert))
-
-    return libs
+        match alert['pluginId']:
+            case "10003":
+                tech_leaks = tech_leaks + 1
+                js_libs.append(parse_vulnerable_javascript(alert))
+            case "10036" | "10037" | "10004":
+                js_lib_count = js_lib_count + 1
+                tech_stack.append(parse_tech_stack_leak(alert))
+            case _:
+                continue
+    
+    parsed_alerts['tech_stack'] = tech_stack
+    parsed_alerts['js_libs'] = js_libs
+    print(f"Found {tech_leaks} tech stack infos and {js_lib_count} vulnerable JS entries")
+    return parsed_alerts
 
 
 def main():
     key = ''
+    results = {}
     parser = argparse.ArgumentParser(
         description = "Analyze ZAProxy JSON alert report"  )
     parser.add_argument(
@@ -212,14 +257,20 @@ def main():
         default = True,
     )
     parser.add_argument(
-        '--nocsv',
-        help = "Don't output results in CSV format",
+        '--cve',
+        help = "Add CVE base score and vector to output, by performing a lookup on NIST NVD database",
         action = 'store_true',
         default = False,
     )
     parser.add_argument(
-        '--cve',
-        help = "Add CVE base score and vector to output, by performing a lookup on NIST NVD database",
+        '--js',
+        help = "Evaluate for vulnerable JavaScript libraries",
+        action = 'store_true',
+        default = False,
+    )
+    parser.add_argument(
+        '--tech',
+        help = "Evaluate for exposed technologie Information",
         action = 'store_true',
         default = False,
     )
@@ -235,8 +286,13 @@ def main():
     if args.apikey:
         key = {'apiKey' : f"{args.apikey}"}
 
-    if args.csv and not args.nocsv:
-        generate_csv_output(results, args.cve, key)
+#    if args.csv and not args.nocsv:
+#        generate_csv_output(results, args.cve, key)
+    if args.js:
+        generate_js_output(results['js_libs'], args.cve, key)
+    if args.tech:
+        generate_tech_output(results['tech_stack'])
+
 
 
 if __name__ == '__main__':
